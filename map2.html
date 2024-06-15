@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Vehicle Management Interface</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f9;
+        }
+
+        #map {
+            height: 80vh;
+            width: 80vw;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 5px;
+        }
+
+        .leaflet-popup-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .popup-content p {
+            margin: 5px 0;
+            color: #333;
+        }
+
+        .leaflet-container {
+            background: linear-gradient(to bottom right, #e6f7ff, #f2e6ff);
+        }
+
+        .leaflet-tooltip {
+            background-color: #333;
+            color: white;
+            border-radius: 3px;
+            padding: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .action-buttons button {
+            padding: 8px 16px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .action-buttons button:hover {
+            background-color: #0056b3;
+        }
+
+        .vehicle-popup {
+            max-width: 250px;
+            text-align: center;
+        }
+
+        .vehicle-popup .vehicle-details {
+            margin-bottom: 10px;
+        }
+
+        .vehicle-popup button {
+            margin-top: 8px;
+            padding: 6px 12px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .vehicle-popup button:hover {
+            background-color: #218838;
+        }
+
+        .passenger-info {
+            margin-top: 10px;
+        }
+
+        .passenger-info p {
+            margin: 5px 0;
+        }
+
+        .passenger-select {
+            margin-top: 10px;
+        }
+
+        .passenger-select select {
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        #routeInfo {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([19.076, 72.8777], 10); // Centered on Mumbai
+
+        // Set up the OSM layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Routing control
+        var routingControl = L.Routing.control({
+            waypoints: [],
+            routeWhileDragging: true,
+            lineOptions: {
+                styles: [{ color: '#007BFF', opacity: 0.8, weight: 5 }]
+            },
+            createMarker: function (i, wp) {
+                if (i === 0) {
+                    return L.marker(wp.latLng, { draggable: true }).bindPopup('Vashi').openPopup();
+                } else if (i === 1) {
+                    return L.marker(wp.latLng, { draggable: true }).bindPopup('Mumbai').openPopup();
+                } else if (i === 2) {
+                    return L.marker(wp.latLng, { draggable: true }).bindPopup('Pune').openPopup();
+                }
+                return L.marker(wp.latLng);
+            }
+        }).addTo(map);
+
+        // Add markers for Mumbai and Pune
+        var mumbaiMarker = L.marker([18.975, 72.8258], { draggable: true }).addTo(map).bindTooltip("Mumbai", { permanent: true, direction: 'top' }).openTooltip();
+        var puneMarker = L.marker([18.5204, 73.8567], { draggable: true }).addTo(map).bindTooltip("Pune", { permanent: true, direction: 'top' }).openTooltip();
+
+        // Predefine the waypoints for the routing
+        routingControl.setWaypoints([
+            L.latLng(19.0771, 72.9981), // Vashi
+            L.latLng(18.975, 72.8258), // Mumbai
+            L.latLng(18.5204, 73.8567)  // Pune
+        ]);
+
+        // Marker locations and passenger details
+        var locations = [
+            { name: "Mumbai", coordinates: [18.975, 72.8258], passengers: ["John Doe", "Jane Smith", "Michael Brown"], contact: ["9876543210", "8765432109", "7654321890"] },
+            { name: "Pune", coordinates: [18.5204, 73.8567], passengers: ["Emily Johnson", "David Lee"], contact: ["9087654321", "7890123456"] }
+        ];
+
+        // Add markers for each location
+        locations.forEach(location => {
+            var marker = L.marker(location.coordinates).addTo(map);
+
+            marker.bindTooltip(location.name, {
+                permanent: true,
+                direction: 'top'
+            }).openTooltip();
+
+            marker.on('mouseover', function () {
+                var passengersHTML = location.passengers.map((passenger, index) => {
+                    return `
+                        <p>${passenger} - ${location.contact[index]}</p>
+                    `;
+                }).join('');
+
+                marker.bindPopup(`
+                    <div class="popup-content">
+                        <p>Passengers Available:</p>
+                        <div class="passenger-info">
+                            ${passengersHTML}
+                        </div>
+                    </div>
+                `).openPopup();
+            });
+
+            marker.on('mouseout', function () {
+                marker.closePopup();
+            });
+        });
+
+        // Vashi marker with vehicle selection
+        var vashiMarker = L.marker([19.0771, 72.9981], { draggable: true }).addTo(map);
+
+        vashiMarker.bindTooltip("Vashi", {
+            permanent: true,
+            direction: 'top'
+        }).openTooltip();
+
+        var vehicles = [
+            { model: "WagonR", driver: "Rajesh", phone: "638232013", license: "MH 02 EJ 8906" },
+            { model: "Baleno", driver: "Kalej", phone: "9075247899", license: "MH 02 JI 4587" },
+            { model: "Celerio", driver: "Jitesh", phone: "890235890", license: "MH 12 KM 1258" },
+            { model: "Swift", driver: "Suresh", phone: "7654321890", license: "MH 01 AB 4567" },
+            { model: "Dzire", driver: "Mahesh", phone: "9876543210", license: "MH 03 CD 7890" }
+        ];
+
+        var selectedVehicle = null;
+        var vehicleMarker = null;
+        var selectedPassenger = null;
+
+        vashiMarker.on('click', function () {
+            var vehicleSelectionHTML = vehicles.map(vehicle => {
+                return `
+                    <div class="vehicle-popup">
+                        <div class="vehicle-details">
+                            <b>Vehicle:</b> ${vehicle.model}<br>
+                            <button class="selectVehicle" data-model="${vehicle.model}">Select ${vehicle.model}</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            vashiMarker.bindPopup(vehicleSelectionHTML, { direction: 'right', permanent: false }).openPopup();
+        });
+
+        $(document).on('click', '.selectVehicle', function () {
+            var model = $(this).data('model');
+            var vehicle = vehicles.find(v => v.model === model);
+
+            if (vehicle) {
+                selectedVehicle = vehicle;
+                vashiMarker.closePopup();
+                showVehicleDetails(vehicle);
+            }
+        });
+
+        function showVehicleDetails(vehicle) {
+            if (vehicleMarker) {
+                map.removeLayer(vehicleMarker);
+            }
+
+            vehicleMarker = L.marker([19.0771, 72.9981], {
+                draggable: true
+            }).addTo(map);
+
+            var passengerSelectionHTML = `
+                <div class="passenger-select">
+                    <label for="passenger">Select Passenger:</label>
+                    <select id="passenger">
+                        <option value="">--Select Passenger--</option>
+                        ${locations[0].passengers.map((passenger, index) => `
+                            <option value="${index}">${passenger} (Mumbai)</option>
+                        `).join('')}
+                        ${locations[1].passengers.map((passenger, index) => `
+                            <option value="${index + locations[0].passengers.length}">${passenger} (Pune)</option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+
+            vehicleMarker.bindPopup(`
+                <div class="vehicle-popup">
+                    <div class="vehicle-details">
+                        <b>Vehicle:</b> ${vehicle.model}<br>
+                    </div>
+                    <p><b>Driver:</b> ${vehicle.driver}</p>
+                    <p><b>License Plate:</b> ${vehicle.license}</p>
+                    <p><b>Status:</b> Available for pickup</p>
+                    ${passengerSelectionHTML}
+                    <p>Drag to Mumbai for pickup, then drag anywhere in Pune for delivery</p>
+                    <p id="routeInfo">Estimated time: Calculating...</p>
+                </div>
+            `).openPopup();
+
+            vehicleMarker.on('dragend', function (e) {
+                var latlng = e.target.getLatLng();
+                calculateRoute();
+            });
+
+            mumbaiMarker.on('dragend', function (e) {
+                calculateRoute();
+            });
+
+            puneMarker.on('dragend', function (e) {
+                calculateRoute();
+            });
+
+            $('#passenger').on('change', function () {
+                selectedPassenger = $(this).find("option:selected").text();
+            });
+        }
+
+        function calculateRoute() {
+            routingControl.setWaypoints([
+                vashiMarker.getLatLng(),
+                mumbaiMarker.getLatLng(),
+                puneMarker.getLatLng()
+            ]);
+
+            routingControl.on('routesfound', function (e) {
+                var routes = e.routes;
+                var summary = routes[0].summary;
+                var estimatedTime = summary.totalTime / 60; // Convert to minutes
+
+                $('#routeInfo').text(`Estimated time: ${Math.round(estimatedTime)} minutes`);
+            });
+        }
+    </script>
+</body>
+
+</html>
